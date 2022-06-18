@@ -17,6 +17,7 @@ jobs:
     - uses: actions/checkout@v2
     - name : Rub Bicep linter
       run:  az bicep build --file ./deploy/main.bicep
+
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -33,9 +34,29 @@ jobs:
         template: ./deploy/main.bicep
         parameters: environmentType=${{ env.ENVIRONMENT_TYPE }}
         deploymentMode: Validate
-  deploy:
+
+  preview:
     runs-on: ubuntu-latest
     needs: [lint, validate]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: azure/login@v1
+      name: Sign in to Azure
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - uses: Azure/cli@v1
+      name: Run what-if
+      with:
+        inlineScript: |
+            az deployment group what-if \
+              --resource-group ${{ env.AZURE_RESOURCEGROUP_NAME }} \
+              --template-file deploy/main.bicep \
+              --parameters environmentType=${{ env.ENVIRONMENT_TYPE }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    environment: website
+    needs: preview
     steps:
     - uses: actions/checkout@v2
     - uses: azure/login@v1
